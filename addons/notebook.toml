@@ -2,7 +2,7 @@
 repo = "addiscorp/ava-notebook"
 # The head of addiscorp/ava-notebook's first PR (claude/notebook-33). Re-pin to
 # its merge commit on main once that PR is merged.
-commit = "4c045faffca87961f0ce87b0591333e42894d32c"
+commit = "1d52e9629e2c2fea6b91954a04e64398c42c2809"
 version = "0.1.0"
 publisher = "Addis"
 permissions = ["files", "storage", "tools"]
