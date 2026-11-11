@@ -1,0 +1,25 @@
+{
+  "name": "ava-catalogue",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Ava's add-on catalogue: reviewed entries pinned to commits, and the packer that builds, packs and signs them (tools/pack).",
+  "repository": "https://github.com/addiscorp/ava-catalogue",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test tools/pack/test/*.test.ts",
+    "test:verify": "python3 -I tools/verify/test_verify.py",
+    "validate": "node tools/pack/main.ts validate",
+    "vectors": "node tools/pack/main.ts vectors"
+  },
+  "dependencies": {
+    "smol-toml": "1.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "5.9.3"
+  }
+}

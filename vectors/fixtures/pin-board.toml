@@ -1,0 +1,11 @@
+# A test vector's entry, not a real add-on: never in addons/.
+repo = "addiscorp/ava-catalogue-vectors"
+commit = "1111111111111111111111111111111111111111"
+version = "2.1.0-beta.1"
+publisher = "Vectors (test key)"
+permissions = ["network", "storage", "tools"]
+egress = ["images.example.com", "*.cdn.example.com"]
+
+[[tools]]
+name = "pin"
+effect = "outside"

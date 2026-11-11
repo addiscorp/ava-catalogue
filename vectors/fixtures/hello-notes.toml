@@ -1,0 +1,15 @@
+# A test vector's entry, not a real add-on: never in addons/.
+repo = "addiscorp/ava-catalogue-vectors"
+commit = "0000000000000000000000000000000000000000"
+version = "1.0.0"
+publisher = "Vectors (test key)"
+permissions = ["tools", "files"]
+egress = []
+
+[[tools]]
+name = "find"
+effect = "read"
+
+[[tools]]
+name = "jot"
+effect = "inside"

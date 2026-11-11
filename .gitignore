@@ -1,0 +1,6 @@
+node_modules/
+.tmp/
+__pycache__/
+# What tools/pack builds (CI's work and output folders)
+out/
+work/
