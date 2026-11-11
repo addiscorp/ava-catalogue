@@ -2,7 +2,9 @@
 # add-on from its pinned commit, check its manifest against its entry, pack
 # it, sign it with the TEST key and verify it all with tools/verify.
 #
-# Runners (APS 11): CI runs in a fresh mirab VM per job. Nothing here signs
+# Runners: this repo is public, so CI runs on GitHub-hosted runners like the
+# other public addiscorp repos (rixse, mirab). The mirab VM pool serves private
+# repos only (APS 11). Nothing here signs
 # with the production key or uploads anything; the only secret is the
 # optional read token for private add-on repos (ADDON_SOURCE_TOKEN), given to
 # the fetch step alone.
@@ -25,7 +27,7 @@ env:
 
 jobs:
   check:
-    runs-on: mirab-linux-x64
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -55,7 +57,7 @@ jobs:
 
   build:
     needs: [check]
-    runs-on: mirab-linux-x64
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
