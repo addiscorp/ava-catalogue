@@ -43,6 +43,9 @@ What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
    The permissions, tools and egress hosts are there so the reviewer reads,
    in the diff, exactly what Ava's install prompt will say. CI fails if the
    built manifest says anything else.
+
+   The add-on's repo also has a **listing** in `listing/` (see below): what
+   the website, Ava's Settings › Add-ons and her marketplace tools show.
 3. The PR's CI (`.github/workflows/pr.yml`, on a mirab VM) builds every
    changed add-on from its pinned commit in a clean directory, checks the
    manifest by Ava's rules and against the entry, packs it, signs it with the
@@ -55,43 +58,100 @@ What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
 Ids are `[a-z0-9-]{3,32}`; `ava`, `ava-*` and `addis-*` are reserved for
 add-ons that ship inside Ava and are refused here.
 
+## The listing
+
+Every add-on's repo has `listing/listing.toml`, read at the pinned commit
+(the fetch step copies it before the add-on's own build runs, so the build
+can't change it):
+
+```toml
+category = "notes"            # notes writing files media design developer productivity learning other
+icon = "icon.svg"             # in listing/: an .svg (≤ 64 KiB, a picture only) or a square .png (64–1024 px)
+homepage = "https://…"        # optional; the repo's page when left out
+long_description = """
+Plain text, paragraphs split by a blank line, at most 4000 characters."""
+
+[[screenshots]]               # 0 to 4: PNG, ≤ 1 MiB, 320–2560 wide and 200–1600 high
+file = "screenshot-read.png"
+caption = "One line, at most 120 characters."
+```
+
+The name, version and short description stay in the manifest. An SVG icon
+must be a picture and nothing else: no script, event handlers, foreign HTML,
+DTD, or reference outside itself (only `#…` hrefs and `url(#…)`). The packer
+names the assets itself (`icon.svg` or `icon.png`, `screenshot-1.png`…),
+copies the checked listing into the package (`listing/listing.json` and
+`listing/<asset>`; a bundle may not have its own `listing/`) and into the
+index entry, and serves each asset at `assets/<id>/<version>/<asset>` with
+its sha256 in the index. Ava checks the package's listing is the index's,
+and every picture against its sha256 each time it shows one.
+
 ## The format
 
-Both files are what `catalogue.rs` reads, byte for byte what serde_json would
-write, each with a detached signature beside it.
+Every file is what `catalogue.rs` reads, byte for byte what serde_json would
+write. Under `https://ava-releases.addis.gg/catalogue/`:
 
-- **A package**, `<id>-<version>.avapkg`: compact JSON
+| file | what | cache |
+|---|---|---|
+| `<id>-<version>.avapkg` + `.sig` | a package | immutable |
+| `assets/<id>/<version>/<asset>` | a listing's icon and screenshots | immutable |
+| `index/<version>.json` + `.sig` | the index, format 2, with listings | immutable |
+| `latest.json` | the pointer: which index is current | no-cache |
+| `index.json` + `.sig` | the same index in format 1, for older Avas | no-cache |
+
+- **A package**: compact JSON
   `{"format":1,"id":"…","version":"…","files":{"<path>":"<base64>",…}}`, the
-  bundle's files by `/`-separated path in byte order. No symlinks, no path
-  outside the bundle.
-- **The index**, `index.json`: pretty JSON (two spaces) with `format` 1, a
-  `version`, the `published` date and one entry per add-on: `id`, `name`,
-  `version`, `publisher`, `description`, `permissions`, `tools` (`name`,
-  `description`, `effect`), `egress` and `package` (`file`, `sha256`,
-  `bytes`). Names, descriptions and tool descriptions come from the
-  manifest; `publisher` from the entry.
-- **Signatures**, `<file>.sig`: the raw 64-byte Ed25519 signature of the
-  file's exact bytes, in standard base64.
+  bundle's files (and its `listing/`) by `/`-separated path in byte order.
+  No symlinks, no path outside the bundle.
+- **The index**, `index/<version>.json`: pretty JSON (two spaces) with
+  `format` 2, a `version`, the `published` date and one entry per add-on:
+  `id`, `name`, `version`, `publisher`, `description`, `permissions`,
+  `tools` (`name`, `description`, `effect`), `egress`, `package` (`file`,
+  `sha256`, `bytes`) and `listing` (`long_description`, `category`,
+  `homepage`, `repo`, `icon` {`file`, `sha256`, `bytes`}, `screenshots`
+  [{`file`, `sha256`, `bytes`, `width`, `height`, `caption`}]). Names,
+  descriptions and tool descriptions come from the manifest; `publisher`
+  from the entry; the listing from `listing/`.
+- **The pointer**, `latest.json`: `{"format":2,"version":N,"index":"index/N.json","sha256":…,"bytes":…,"signature":…}`,
+  the index's sha256, size and signature. One file, written in one PUT,
+  after the index it names: Ava can never read an index with another's
+  signature (which `index.json` and `index.json.sig`, two files, allow for
+  a moment on every release). Everything in it is checked against the
+  signed index (its bytes, its version), so it needs no signature of its own.
+- **The legacy index**, `index.json`: the same index in format 1, without
+  listings (Avas from before the pointer refuse unknown fields). Ava reads
+  it only when there's no `latest.json` (a 404), never because fetching
+  `latest.json` failed.
+- **Signatures**, `<file>.sig` (and the pointer's `signature`): the raw
+  64-byte Ed25519 signature of the file's exact bytes, in standard base64.
 
 **The index version only goes up.** It is the merge commit's time in seconds.
 Ava refuses an index older than one it has accepted; the release refuses to
 publish one older than what's live, and one with the live version that says
-something else.
+something else (the first format 2 index may share its version with the last
+format 1 one, if it says the same). A published package or asset never
+changes its bytes.
 
 ### Two implementations, one format: the vectors
 
 The packer is TypeScript, Ava's verifier is Rust. `vectors/` is how they're
 kept in step:
 
-- `vectors/fixtures/`: two small add-ons and their entries (paths that sort
-  differently as bytes and as a JavaScript object would, a tab, quotes and
-  non-ASCII text, a beta version, egress hosts).
-- `vectors/good/`: their packages and an index (version 100), signed with the
-  test key (`catalogue.rs` `test_key::SEED`, public on purpose).
-- `vectors/bad/`: `tampered-package`, `wrong-signature` (index signed by
-  another key), `rollback` (version 99 after 100) and `manifest-mismatch`
-  (the index asks for less than the package's manifest).
-- `vectors/cases.json`: which is which.
+- `vectors/fixtures/`: two small add-ons, their entries and their listings
+  (`<id>.listing/`: paths that sort differently as bytes and as a JavaScript
+  object would, a tab, quotes and non-ASCII text, a beta version, egress
+  hosts, an SVG and a PNG icon, a screenshot and none).
+- `vectors/good/`: their packages, assets, both indexes (version 100) and
+  the pointer, signed with the test key (`catalogue.rs` `test_key::SEED`,
+  public on purpose).
+- `vectors/bad/`: `tampered-package`, `wrong-signature` (both indexes signed
+  by another key), `rollback` (version 99 after 100), `manifest-mismatch`
+  (the index asks for less than the package's manifest), `pointer-hash`
+  (latest.json's sha256 isn't the index's), `pointer-version` (latest.json
+  says 101, the index is 100), `listing-mismatch` (the index's listing isn't
+  the package's) and `asset-tampered` (an icon changed after it was recorded).
+- `vectors/cases.json`: which is which, and by which way in (`latest`, or
+  `both` with `index.json`).
 
 `npm run vectors` makes them; CI fails if they're not current.
 `patches/ava-catalogue-vectors.patch` copies them into addiscorp/ava with a
@@ -118,10 +178,12 @@ vectors and the patch together.
   bare environment and no secrets; every process of that user is killed
   before the signing step, the only step given the key (as an environment
   variable, never an argument, never logged).
-- **Nothing counts until it's read back.** After uploading (packages first,
-  then the index, so the index never points at a missing package) the release
-  downloads every file from `ava-releases.addis.gg`, compares the bytes and
-  verifies them against the production key with `tools/verify` (APS 9).
+- **Nothing counts until it's read back.** After uploading (packages and
+  assets, then `index/<version>.json`, then `latest.json`, then `index.json`
+  for older Avas, so nothing ever points at a file that isn't there yet) the
+  release downloads every file from `ava-releases.addis.gg`, compares the
+  bytes and verifies them against the production key with `tools/verify`, by
+  both ways in, which must agree (APS 9).
 - **The PR workflow has no signing key**: it signs with the test key, and its
   only secret is the read token for private add-on repos.
 

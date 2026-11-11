@@ -1,0 +1,4 @@
+# A test vector's listing, not a real add-on: a PNG icon, no screenshots, no homepage.
+category = "media"
+icon = "pin.png"
+long_description = "Pins images from two hosts."
