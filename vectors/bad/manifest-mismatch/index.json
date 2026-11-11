@@ -29,8 +29,8 @@
       "egress": [],
       "package": {
         "file": "hello-notes-1.0.0.avapkg",
-        "sha256": "ddb20cb17e07b799d94f6fbd225a5418777471645b3b06d9671ca264ce87fc7b",
-        "bytes": 2024
+        "sha256": "142fbc7940838a0abc6bb56a3f3b8dd83f08d1a011a84a0d71baf8572a343659",
+        "bytes": 5106
       }
     },
     {
@@ -57,8 +57,8 @@
       ],
       "package": {
         "file": "pin-board-2.1.0-beta.1.avapkg",
-        "sha256": "f05b5d2eed61bb1898b43766719a0e616012272c911acf80bc16dc634a32be92",
-        "bytes": 875
+        "sha256": "6e7e23bd8bf202282eb89cbea19143df47e36448884b3eab56e6813427cc0c12",
+        "bytes": 1743
       }
     }
   ]

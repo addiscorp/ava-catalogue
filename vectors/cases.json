@@ -9,24 +9,55 @@
     {
       "dir": "bad/tampered-package",
       "refuse": "package",
+      "via": "both",
       "addon": "hello-notes",
       "because": "the package signature does not match its bytes"
     },
     {
       "dir": "bad/wrong-signature",
       "refuse": "index",
+      "via": "both",
       "because": "the index is signed by another key"
     },
     {
       "dir": "bad/rollback",
       "refuse": "index",
+      "via": "both",
       "because": "the index is older (99) than the last one accepted (100)"
     },
     {
       "dir": "bad/manifest-mismatch",
       "refuse": "package",
+      "via": "both",
       "addon": "hello-notes",
       "because": "the index's permissions are not the manifest's"
+    },
+    {
+      "dir": "bad/pointer-hash",
+      "refuse": "index",
+      "via": "latest",
+      "because": "latest.json's sha256 is not the index's"
+    },
+    {
+      "dir": "bad/pointer-version",
+      "refuse": "index",
+      "via": "latest",
+      "because": "the index's version (100) is not the one latest.json names (101)"
+    },
+    {
+      "dir": "bad/listing-mismatch",
+      "refuse": "package",
+      "via": "latest",
+      "addon": "hello-notes",
+      "because": "the index's listing is not the package's"
+    },
+    {
+      "dir": "bad/asset-tampered",
+      "refuse": "asset",
+      "via": "latest",
+      "addon": "hello-notes",
+      "asset": "assets/hello-notes/1.0.0/icon.svg",
+      "because": "the icon's bytes are not the ones the index records"
     }
   ]
 }

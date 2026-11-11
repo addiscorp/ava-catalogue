@@ -29,6 +29,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The patch test rebuilds ava's current vectors from this repo's history.
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
@@ -92,15 +95,24 @@ jobs:
         id: live
         run: |
           set -euo pipefail
-          mkdir -p live
-          code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?pr=${GITHUB_RUN_ID}")" || code=000
+          mkdir -p live/index
+          code="$(curl -sS -o live/latest.json -w '%{http_code}' "${CATALOGUE_URL}latest.json?pr=${GITHUB_RUN_ID}")" || code=000
           case "$code" in
             200)
-              curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?pr=${GITHUB_RUN_ID}"
-              echo "previous=--previous live --previous-key ${PRODUCTION_KEY}" >> "$GITHUB_OUTPUT" ;;
-            404) echo "nothing published yet" ;;
-            *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: can't check against the published catalogue"; exit 1 ;;
+              name="$(python3 -c 'import json; print(json.load(open("live/latest.json"))["index"])')"
+              case "$name" in index/[0-9]*.json) ;; *) echo "::error::latest.json names ${name}"; exit 1 ;; esac
+              curl -fsS -o "live/${name}" "${CATALOGUE_URL}${name}?pr=${GITHUB_RUN_ID}" ;;
+            404)
+              rm -f live/latest.json
+              code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?pr=${GITHUB_RUN_ID}")" || code=000
+              case "$code" in
+                200) curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?pr=${GITHUB_RUN_ID}" ;;
+                404) echo "nothing published yet"; exit 0 ;;
+                *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: can't check against the published catalogue"; exit 1 ;;
+              esac ;;
+            *) echo "::error::${CATALOGUE_URL}latest.json answered ${code}: can't check against the published catalogue"; exit 1 ;;
           esac
+          echo "previous=--previous live --previous-key ${PRODUCTION_KEY}" >> "$GITHUB_OUTPUT"
       - name: Index and sign (TEST key)
         if: steps.ids.outputs.ids != ''
         run: |
@@ -116,6 +128,6 @@ jobs:
           {
             echo "### Built from pinned commits, signed with the test key"
             echo '```'
-            ls -l out
+            ls -lR out
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

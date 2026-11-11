@@ -1,0 +1,12 @@
+# A test vector's listing, not a real add-on.
+category = "notes"
+icon = "icon.svg"
+homepage = "https://example.com/hello-notes"
+long_description = """
+A test vector's long description: “quoted”, ünïcode and two paragraphs survive the round trip.
+
+The second paragraph, after a blank line."""
+
+[[screenshots]]
+file = "notes-shot.png"
+caption = "A screenshot’s caption, “quoted”."

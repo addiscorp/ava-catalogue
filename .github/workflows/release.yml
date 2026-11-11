@@ -3,8 +3,12 @@
 # (the `release` environment, main only), upload them to R2, and read them
 # back over HTTPS before it counts (APS 9, APS 12).
 #
-#   https://ava-releases.addis.gg/catalogue/index.json(.sig)        the index (catalogue.rs CATALOGUE_URL)
-#   https://ava-releases.addis.gg/catalogue/<id>-<version>.avapkg(.sig)
+#   https://ava-releases.addis.gg/catalogue/ (catalogue.rs CATALOGUE_URL):
+#     <id>-<version>.avapkg(.sig)     packages (immutable)
+#     assets/<id>/<version>/<name>    listing icons and screenshots (immutable)
+#     index/<version>.json(.sig)      the index, format 2 (immutable)
+#     latest.json                     the pointer to it: version, sha256, size, signature
+#     index.json(.sig)                the same index in format 1, for older Avas
 #
 # Runner (APS 11): publish jobs stay on GitHub-hosted runners; this is one.
 # The add-ons' own build scripts run as a separate user with a bare
@@ -111,19 +115,31 @@ jobs:
         id: live
         run: |
           set -euo pipefail
-          mkdir -p live
-          code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?release=${GITHUB_RUN_ID}")" || code=000
+          mkdir -p live/index
+          # The pointer first (what Ava reads); index.json only before the first pointer was published.
+          code="$(curl -sS -o live/latest.json -w '%{http_code}' "${CATALOGUE_URL}latest.json?release=${GITHUB_RUN_ID}")" || code=000
           case "$code" in
             200)
-              curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?release=${GITHUB_RUN_ID}"
-              last="$(python3 -c 'import json; print(json.load(open("live/index.json"))["version"])')"
-              {
-                echo "previous=--previous live --previous-key ${PRODUCTION_KEY}"
-                echo "last=--last ${last}"
-              } >> "$GITHUB_OUTPUT" ;;
-            404) echo "nothing published yet: this is the first index" ;;
-            *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: refusing to publish without knowing what's live"; exit 1 ;;
+              name="$(python3 -c 'import json; print(json.load(open("live/latest.json"))["index"])')"
+              case "$name" in index/[0-9]*.json) ;; *) echo "::error::latest.json names ${name}"; exit 1 ;; esac
+              curl -fsS -o "live/${name}" "${CATALOGUE_URL}${name}?release=${GITHUB_RUN_ID}"
+              last="$(python3 -c 'import json; print(json.load(open("live/latest.json"))["version"])')" ;;
+            404)
+              rm -f live/latest.json
+              code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?release=${GITHUB_RUN_ID}")" || code=000
+              case "$code" in
+                200)
+                  curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?release=${GITHUB_RUN_ID}"
+                  last="$(python3 -c 'import json; print(json.load(open("live/index.json"))["version"])')" ;;
+                404) echo "nothing published yet: this is the first index"; exit 0 ;;
+                *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: refusing to publish without knowing what's live"; exit 1 ;;
+              esac ;;
+            *) echo "::error::${CATALOGUE_URL}latest.json answered ${code}: refusing to publish without knowing what's live"; exit 1 ;;
           esac
+          {
+            echo "previous=--previous live --previous-key ${PRODUCTION_KEY}"
+            echo "last=--last ${last}"
+          } >> "$GITHUB_OUTPUT"
 
       # The index version is this commit's time (seconds): it only goes up as
       # main moves, and the packer refuses one older than what's published.
@@ -143,9 +159,11 @@ jobs:
       - name: Verify, independently, before uploading
         run: python3 -I tools/verify/verify.py --key "$PRODUCTION_KEY" --dir out --entries addons ${{ steps.live.outputs.last }}
 
-      # Packages first, then the index, so the index never points at a package
-      # that isn't there yet.
-      - name: Upload to R2 (packages, then the index)
+      # Packages and assets first, then the versioned index, then the pointer to
+      # it, so nothing ever points at a file that isn't there yet; index.json
+      # (older Avas) last. The pointer is one file holding the index's hash
+      # and signature, so Ava can never read an index with another's signature.
+      - name: Upload to R2 (packages, assets, the index, the pointer, then index.json)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -161,6 +179,17 @@ jobs:
             put "$name" application/octet-stream "public, max-age=31536000, immutable"
             put "$name.sig" "text/plain; charset=utf-8" "public, max-age=300"
           done
+          if [ -d out/assets ]; then
+            while IFS= read -r f; do
+              name="${f#out/}"
+              case "$name" in *.svg) type=image/svg+xml ;; *.png) type=image/png ;; *) echo "::error::an asset that is neither .svg nor .png: $name"; exit 1 ;; esac
+              put "$name" "$type" "public, max-age=31536000, immutable"
+            done < <(find out/assets -type f | sort)
+          fi
+          index="$(python3 -c 'import json; print(json.load(open("out/latest.json"))["index"])')"
+          put "$index" application/json "public, max-age=31536000, immutable"
+          put "$index.sig" "text/plain; charset=utf-8" "public, max-age=31536000, immutable"
+          put latest.json application/json "no-cache"
           put index.json.sig "text/plain; charset=utf-8" "no-cache"
           put index.json "application/json" "no-cache"
 
@@ -170,21 +199,23 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p served
-          for f in out/index.json out/index.json.sig out/*.avapkg out/*.avapkg.sig; do
-            name="$(basename "$f")"
+          while IFS= read -r f; do
+            name="${f#out/}"
+            mkdir -p "$(dirname "served/$name")"
             curl -fsS -A "ava-catalogue-release" -o "served/$name" "${CATALOGUE_URL}${name}?readback=${GITHUB_RUN_ID}"
             cmp "served/$name" "$f" || { echo "::error::${CATALOGUE_URL}${name} isn't the bytes just uploaded"; exit 1; }
             echo "served/$name: $(sha256sum "served/$name" | cut -d' ' -f1)"
-          done
-          python3 -I tools/verify/verify.py --key "$PRODUCTION_KEY" --dir served --entries addons
+          done < <(find out -type f ! -name entries.json | sort)
+          # Both of Ava's ways in (latest.json, and index.json for older Avas), which must agree.
+          python3 -I tools/verify/verify.py --key "$PRODUCTION_KEY" --dir served --entries addons --via both
 
       - name: Summary
         if: always()
         run: |
           {
             echo "### Ava catalogue"
-            if [ -f served/index.json ]; then
-              echo "- ${CATALOGUE_URL}index.json: version $(python3 -c 'import json; print(json.load(open("served/index.json"))["version"])'), read back and verified"
+            if [ -f served/latest.json ]; then
+              echo "- ${CATALOGUE_URL}latest.json → $(python3 -c 'import json; print(json.load(open("served/latest.json"))["index"])'), and index.json: read back and verified"
             else
               echo "- not published (see the failed step)"
             fi
