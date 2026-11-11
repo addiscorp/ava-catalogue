@@ -1,0 +1,192 @@
+# Publish the catalogue: on every push to main, build every add-on again from
+# its pinned commit, sign the packages and the index with the production key
+# (the `release` environment, main only), upload them to R2, and read them
+# back over HTTPS before it counts (APS 9, APS 12).
+#
+#   https://ava-releases.addis.gg/catalogue/index.json(.sig)        the index (catalogue.rs CATALOGUE_URL)
+#   https://ava-releases.addis.gg/catalogue/<id>-<version>.avapkg(.sig)
+#
+# Runner (APS 11): publish jobs stay on GitHub-hosted runners; this is one.
+# The add-ons' own build scripts run as a separate user with a bare
+# environment, and every process of theirs is gone before the signing step
+# gets the key, so nothing they start can read it.
+#
+# Secrets, by name only (none is ever printed or passed as an argument):
+#   CATALOGUE_SIGNING_KEY  the Ed25519 seed, 64 hex (release environment)
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT   R2 upload (release environment)
+#   ADDON_SOURCE_TOKEN     optional: reads private add-on repos (fetch step only)
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# One publish at a time, never cancelled half way through an upload.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CATALOGUE_URL: https://ava-releases.addis.gg/catalogue/
+  R2_BUCKET: ava-releases
+  R2_PREFIX: catalogue/
+  PRODUCTION_KEY: b4dde9d1fc109c2bed7459046e7848ee6e96459a4cbff867b3de37f3ef78a0e5
+  BUILD_ROOT: /srv/catalogue
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      # Fail closed, before anything is built: say what's missing, never what's set.
+      - name: The release environment has what publishing needs
+        env:
+          HAS_SIGNING_KEY: ${{ secrets.CATALOGUE_SIGNING_KEY != '' }}
+          HAS_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT != '' }}
+          HAS_R2_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
+          HAS_R2_SECRET: ${{ secrets.R2_SECRET_ACCESS_KEY != '' }}
+        run: |
+          missing=""
+          [ "$HAS_SIGNING_KEY" = true ] || missing="$missing CATALOGUE_SIGNING_KEY"
+          [ "$HAS_R2_ENDPOINT" = true ] || missing="$missing R2_ENDPOINT"
+          [ "$HAS_R2_KEY_ID" = true ] || missing="$missing R2_ACCESS_KEY_ID"
+          [ "$HAS_R2_SECRET" = true ] || missing="$missing R2_SECRET_ACCESS_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::publishing needs these secrets in the release environment:${missing}. Nothing was built, signed or uploaded."
+            exit 1
+          fi
+          openssl version
+          python3 -c 'import sys, tomllib; assert sys.version_info >= (3, 11)'
+          aws --version
+
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Every entry is valid
+        run: node tools/pack/main.ts validate
+
+      - name: Sources at their pinned commits
+        env:
+          ADDON_SOURCE_TOKEN: ${{ secrets.ADDON_SOURCE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ADDON_SOURCE_TOKEN" ]; then
+            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos can be read."
+          fi
+          sudo install -d -m 755 -o "$(id -u)" -g "$(id -g)" "$BUILD_ROOT"
+          node tools/pack/main.ts fetch --work "$BUILD_ROOT/work"
+
+      # The packer and its dependencies, where the build user can read them,
+      # and the sources handed to that user.
+      - name: Build, as a user of its own, with nothing secret
+        run: |
+          set -euo pipefail
+          sudo useradd --create-home --shell /usr/sbin/nologin addon-build
+          cp -R tools addons package.json node_modules "$BUILD_ROOT/"
+          sudo chown -R addon-build: "$BUILD_ROOT/work/src"
+          sudo -u addon-build -H env -i PATH="$PATH" HOME=/home/addon-build \
+            node "$BUILD_ROOT/tools/pack/main.ts" build --work "$BUILD_ROOT/work"
+          # Nothing the build started may still be running when the key is used.
+          sudo pkill -KILL -u addon-build || true
+          for _ in 1 2 3 4 5; do pgrep -u addon-build >/dev/null || break; sleep 1; done
+          if pgrep -u addon-build >/dev/null; then
+            echo "::error::processes of the add-on build are still running; refusing to sign"
+            exit 1
+          fi
+
+      - name: Check each manifest against its entry, and pack
+        run: node tools/pack/main.ts pack --work "$BUILD_ROOT/work" --out out
+
+      # The packer checks its signature against the production key before it
+      # compares anything with it (index step).
+      - name: The published index
+        id: live
+        run: |
+          set -euo pipefail
+          mkdir -p live
+          code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?release=${GITHUB_RUN_ID}")" || code=000
+          case "$code" in
+            200)
+              curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?release=${GITHUB_RUN_ID}"
+              last="$(python3 -c 'import json; print(json.load(open("live/index.json"))["version"])')"
+              {
+                echo "previous=--previous live --previous-key ${PRODUCTION_KEY}"
+                echo "last=--last ${last}"
+              } >> "$GITHUB_OUTPUT" ;;
+            404) echo "nothing published yet: this is the first index" ;;
+            *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: refusing to publish without knowing what's live"; exit 1 ;;
+          esac
+
+      # The index version is this commit's time (seconds): it only goes up as
+      # main moves, and the packer refuses one older than what's published.
+      - name: Index
+        run: |
+          set -euo pipefail
+          version="$(git log -1 --format=%ct HEAD)"
+          published="$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%d HEAD)"
+          node tools/pack/main.ts index --out out --version "$version" --published "$published" ${{ steps.live.outputs.previous }}
+
+      # The only step that sees the key: from the environment, never an argument.
+      - name: Sign (production key)
+        env:
+          CATALOGUE_SIGNING_KEY: ${{ secrets.CATALOGUE_SIGNING_KEY }}
+        run: node tools/pack/main.ts sign --dir out --key-env CATALOGUE_SIGNING_KEY --expect "$PRODUCTION_KEY"
+
+      - name: Verify, independently, before uploading
+        run: python3 -I tools/verify/verify.py --key "$PRODUCTION_KEY" --dir out --entries addons ${{ steps.live.outputs.last }}
+
+      # Packages first, then the index, so the index never points at a package
+      # that isn't there yet.
+      - name: Upload to R2 (packages, then the index)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          set -euo pipefail
+          put() { aws s3 cp "out/$1" "s3://${R2_BUCKET}/${R2_PREFIX}$1" --endpoint-url "$R2_ENDPOINT" --only-show-errors --content-type "$2" --cache-control "$3"; echo "uploaded $1"; }
+          for f in out/*.avapkg; do
+            name="$(basename "$f")"
+            put "$name" application/octet-stream "public, max-age=31536000, immutable"
+            put "$name.sig" "text/plain; charset=utf-8" "public, max-age=300"
+          done
+          put index.json.sig "text/plain; charset=utf-8" "no-cache"
+          put index.json "application/json" "no-cache"
+
+      # It counts only once ava-releases.addis.gg serves these exact bytes and
+      # they verify against the production key.
+      - name: Read it back over HTTPS
+        run: |
+          set -euo pipefail
+          mkdir -p served
+          for f in out/index.json out/index.json.sig out/*.avapkg out/*.avapkg.sig; do
+            name="$(basename "$f")"
+            curl -fsS -A "ava-catalogue-release" -o "served/$name" "${CATALOGUE_URL}${name}?readback=${GITHUB_RUN_ID}"
+            cmp "served/$name" "$f" || { echo "::error::${CATALOGUE_URL}${name} isn't the bytes just uploaded"; exit 1; }
+            echo "served/$name: $(sha256sum "served/$name" | cut -d' ' -f1)"
+          done
+          python3 -I tools/verify/verify.py --key "$PRODUCTION_KEY" --dir served --entries addons
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Ava catalogue"
+            if [ -f served/index.json ]; then
+              echo "- ${CATALOGUE_URL}index.json: version $(python3 -c 'import json; print(json.load(open("served/index.json"))["version"])'), read back and verified"
+            else
+              echo "- not published (see the failed step)"
+            fi
+            for f in out/*.avapkg; do [ -f "$f" ] && echo "- $(basename "$f"): $(sha256sum "$f" | cut -d' ' -f1)"; done
+          } >> "$GITHUB_STEP_SUMMARY"

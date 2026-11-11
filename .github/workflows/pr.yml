@@ -1,0 +1,121 @@
+# A catalogue PR: check the tools and every entry, then build every changed
+# add-on from its pinned commit, check its manifest against its entry, pack
+# it, sign it with the TEST key and verify it all with tools/verify.
+#
+# Runners (APS 11): CI runs in a fresh mirab VM per job. Nothing here signs
+# with the production key or uploads anything; the only secret is the
+# optional read token for private add-on repos (ADDON_SOURCE_TOKEN), given to
+# the fetch step alone.
+name: PR
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CATALOGUE_URL: https://ava-releases.addis.gg/catalogue/
+  TEST_KEY: 2cc39b7391346c1dd3c5c630cac5e99d5efe54c2a26b3249f7488ec62675d0af
+  PRODUCTION_KEY: b4dde9d1fc109c2bed7459046e7848ee6e96459a4cbff867b3de37f3ef78a0e5
+
+jobs:
+  check:
+    runs-on: mirab-linux-x64
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: OpenSSL 3 and Python 3.11+ (tools/verify)
+        run: |
+          openssl version
+          python3 -c 'import sys, tomllib; assert sys.version_info >= (3, 11)'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check
+      # Includes: the patch for addiscorp/ava carries exactly vectors/.
+      - run: npm test
+      - run: npm run test:verify
+      - name: Every entry is valid
+        run: node tools/pack/main.ts validate
+      - name: The vectors are current (npm run vectors)
+        run: |
+          set -euo pipefail
+          npm run vectors
+          git diff --exit-code -- vectors || { echo '::error::run npm run vectors, and commit vectors/ (and remake the patch)' >&2; exit 1; }
+          test -z "$(git status --porcelain -- vectors)" || { git status --short -- vectors; echo '::error::run npm run vectors, and commit vectors/' >&2; exit 1; }
+
+  build:
+    needs: [check]
+    runs-on: mirab-linux-x64
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: The add-ons this PR changes
+        id: ids
+        run: |
+          set -euo pipefail
+          ids="$(node tools/pack/main.ts ids --changed-since "origin/${GITHUB_BASE_REF}" | tr '\n' ' ')"
+          echo "ids=${ids}" >> "$GITHUB_OUTPUT"
+          echo "changed: ${ids:-none}"
+      - name: Sources at their pinned commits
+        if: steps.ids.outputs.ids != ''
+        env:
+          ADDON_SOURCE_TOKEN: ${{ secrets.ADDON_SOURCE_TOKEN }}
+        run: |
+          if [ -z "$ADDON_SOURCE_TOKEN" ]; then
+            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos can be read."
+          fi
+          node tools/pack/main.ts fetch --work work ${{ steps.ids.outputs.ids }}
+      - name: Build (no token, a bare environment)
+        if: steps.ids.outputs.ids != ''
+        run: node tools/pack/main.ts build --work work ${{ steps.ids.outputs.ids }}
+      - name: Check each manifest against its entry, and pack
+        if: steps.ids.outputs.ids != ''
+        run: node tools/pack/main.ts pack --work work --out out ${{ steps.ids.outputs.ids }}
+      # The published index, if there is one: a version that's live must not
+      # change its bytes in this PR either. It's verified with the production
+      # key before anything is compared with it.
+      - name: The published index
+        if: steps.ids.outputs.ids != ''
+        id: live
+        run: |
+          set -euo pipefail
+          mkdir -p live
+          code="$(curl -sS -o live/index.json -w '%{http_code}' "${CATALOGUE_URL}index.json?pr=${GITHUB_RUN_ID}")" || code=000
+          case "$code" in
+            200)
+              curl -fsS -o live/index.json.sig "${CATALOGUE_URL}index.json.sig?pr=${GITHUB_RUN_ID}"
+              echo "previous=--previous live --previous-key ${PRODUCTION_KEY}" >> "$GITHUB_OUTPUT" ;;
+            404) echo "nothing published yet" ;;
+            *) echo "::error::${CATALOGUE_URL}index.json answered ${code}: can't check against the published catalogue"; exit 1 ;;
+          esac
+      - name: Index and sign (TEST key)
+        if: steps.ids.outputs.ids != ''
+        run: |
+          set -euo pipefail
+          node tools/pack/main.ts index --out out --version next --published "$(date -u +%F)" ${{ steps.live.outputs.previous }}
+          node tools/pack/main.ts sign --dir out --test-key --expect "$TEST_KEY"
+      - name: Verify, independently (tools/verify)
+        if: steps.ids.outputs.ids != ''
+        run: python3 -I tools/verify/verify.py --key "$TEST_KEY" --dir out --entries addons --partial
+      - name: Summary
+        if: steps.ids.outputs.ids != ''
+        run: |
+          {
+            echo "### Built from pinned commits, signed with the test key"
+            echo '```'
+            ls -l out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

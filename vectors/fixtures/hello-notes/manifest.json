@@ -1,0 +1,13 @@
+{
+  "id": "hello-notes",
+  "name": "Hello Notes",
+  "version": "1.0.0",
+  "description": "A test vector: two tools, files, no internet. Names “quoted”, a tab\tand ünïcode survive the round trip.",
+  "icon": "icon.svg",
+  "permissions": ["files", "tools"],
+  "egress": [],
+  "tools": [
+    { "name": "find", "description": "Find a note.", "effect": "read", "input_schema": { "type": "object", "properties": { "q": { "type": "string" } } } },
+    { "name": "jot", "description": "Write a note.", "effect": "inside", "input_schema": { "type": "object" } }
+  ]
+}

@@ -1,0 +1,29 @@
+# Notebook: markdown notes in a folder the person picks, with links between them.
+repo = "addiscorp/ava-notebook"
+# The head of addiscorp/ava-notebook's first PR (claude/notebook-33). Re-pin to
+# its merge commit on main once that PR is merged.
+commit = "4c045faffca87961f0ce87b0591333e42894d32c"
+version = "0.1.0"
+publisher = "Addis"
+permissions = ["files", "storage", "tools"]
+egress = []
+
+[[tools]]
+name = "search"
+effect = "read"
+
+[[tools]]
+name = "read"
+effect = "read"
+
+[[tools]]
+name = "list"
+effect = "read"
+
+[[tools]]
+name = "create"
+effect = "inside"
+
+[[tools]]
+name = "append"
+effect = "inside"

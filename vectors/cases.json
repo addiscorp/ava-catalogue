@@ -1,0 +1,32 @@
+{
+  "key": "2cc39b7391346c1dd3c5c630cac5e99d5efe54c2a26b3249f7488ec62675d0af",
+  "last": 100,
+  "cases": [
+    {
+      "dir": "good",
+      "accept": true
+    },
+    {
+      "dir": "bad/tampered-package",
+      "refuse": "package",
+      "addon": "hello-notes",
+      "because": "the package signature does not match its bytes"
+    },
+    {
+      "dir": "bad/wrong-signature",
+      "refuse": "index",
+      "because": "the index is signed by another key"
+    },
+    {
+      "dir": "bad/rollback",
+      "refuse": "index",
+      "because": "the index is older (99) than the last one accepted (100)"
+    },
+    {
+      "dir": "bad/manifest-mismatch",
+      "refuse": "package",
+      "addon": "hello-notes",
+      "because": "the index's permissions are not the manifest's"
+    }
+  ]
+}
