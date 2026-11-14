@@ -1,6 +1,8 @@
 # Notebook: markdown notes in a folder the person picks, with links between them.
 repo = "addiscorp/ava-notebook"
-# addiscorp/ava-notebook#2: its listing (icon, screenshots, long description), 0.1.1.
+# Still addiscorp (GitHub redirects it to avacanada/ava-notebook): the repo URL
+# is part of 0.1.1's signed package, so it moves with the next version.
+# avacanada/ava-notebook#2: its listing (icon, screenshots, long description), 0.1.1.
 # That repo merges with merge commits, so this commit stays on its main.
 commit = "017f07194ecdb4bc4b1f42b36f9d4db3233575bb"
 version = "0.1.1"

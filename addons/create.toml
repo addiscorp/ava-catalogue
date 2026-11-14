@@ -1,6 +1,8 @@
 # Create: a design canvas where Ava builds pages as HTML/CSS artboards with tools.
 repo = "addiscorp/ava-create"
-# addiscorp/ava-create#2 (patch_artboard reports and refuses one text for many;
+# Still addiscorp (GitHub redirects it to avacanada/ava-create): the repo URL
+# is part of 0.2.0's signed package, so it moves with the next version.
+# avacanada/ava-create#2 (patch_artboard reports and refuses one text for many;
 # undo_artboard), 0.2.0, at that PR's head. Merge it before this entry: that
 # repo merges with merge commits, so this commit then stays on its main.
 commit = "e4b9fc4acf805b533ab5080bf394852deaaebac0"

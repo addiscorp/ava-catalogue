@@ -1,10 +1,10 @@
 {
   "name": "ava-catalogue",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "description": "Ava's add-on catalogue: reviewed entries pinned to commits, and the packer that builds, packs and signs them (tools/pack).",
-  "repository": "https://github.com/addiscorp/ava-catalogue",
+  "repository": "https://github.com/avacanada/ava-catalogue",
   "engines": {
     "node": ">=24"
   },

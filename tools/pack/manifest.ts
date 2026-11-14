@@ -1,5 +1,5 @@
 // An add-on's manifest (`manifest.json` in its bundle), checked by the same
-// rules as addiscorp/ava src-tauri/src/addons/manifest.rs `Manifest::check`
+// rules as avacanada/ava src-tauri/src/addons/manifest.rs `Manifest::check`
 // (with first_party = false: nothing in the catalogue may use a reserved id).
 // Ava checks again when it installs; this is so a bad add-on fails here, in
 // its catalogue PR, and never gets signed.

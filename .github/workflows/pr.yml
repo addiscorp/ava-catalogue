@@ -2,9 +2,9 @@
 # add-on from its pinned commit, check its manifest against its entry, pack
 # it, sign it with the TEST key and verify it all with tools/verify.
 #
-# Runners: this repo is public, so CI runs on GitHub-hosted runners like the
-# other public addiscorp repos (rixse, mirab). The mirab VM pool serves private
-# repos only (APS 11). Nothing here signs
+# Runners: this repo is public, so CI runs on GitHub-hosted runners, as
+# public repos may (APS 11, as Sami amended it on 10-12 Nov). Private repos
+# run on our own runners. Nothing here signs
 # with the production key or uploads anything; the only secret is the
 # optional read token for private add-on repos (ADDON_SOURCE_TOKEN), given to
 # the fetch step alone.
@@ -43,7 +43,7 @@ jobs:
           python3 -c 'import sys, tomllib; assert sys.version_info >= (3, 11)'
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run check
-      # Includes: the patch for addiscorp/ava carries exactly vectors/.
+      # Includes: the patch for avacanada/ava carries exactly vectors/.
       - run: npm test
       - run: npm run test:verify
       - name: Every entry is valid

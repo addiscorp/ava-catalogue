@@ -6,7 +6,7 @@
 
 Written apart from tools/pack (another language, Python's standard library,
 and OpenSSL for Ed25519), so a mistake in the packer isn't repeated here. It
-does what addiscorp/ava src-tauri/src/addons/catalogue.rs does before it
+does what avacanada/ava src-tauri/src/addons/catalogue.rs does before it
 trusts anything, by both of the ways Ava reads the catalogue:
 
 - latest (Ava now): latest.json names index/<version>.json with its sha256,
