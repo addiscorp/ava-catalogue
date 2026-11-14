@@ -44,6 +44,11 @@ What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
    in the diff, exactly what Ava's install prompt will say. CI fails if the
    built manifest says anything else.
 
+   `repo` is part of the signed package too (the listing's `repo` and
+   default `homepage` are built from it), so a published version keeps the
+   `repo` it was published with. When an add-on's repo moves, change `repo`
+   together with a new `version`.
+
    The add-on's repo also has a **listing** in `listing/` (see below): what
    the website, Ava's Settings › Add-ons and her marketplace tools show.
 3. The PR's CI (`.github/workflows/pr.yml`, on a mirab VM) builds every
