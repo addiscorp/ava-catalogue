@@ -239,4 +239,8 @@ packer, and Ava's Rust is the third check, through the vectors.
 
 ## License
 
-MIT, see [LICENSE](LICENSE) (APS 17).
+Proprietary, all rights reserved: see [LICENSE](LICENSE). Ava's first-party
+add-ons and their tooling are proprietary, like Ava (Ava APS 1,
+avacanada/aps#1, under Addis APS 17). The add-on SDK,
+[@addiscorp/ava-addon](https://github.com/avacanada/ava-addon), stays MIT, and
+an add-on published here keeps its own licence: the catalogue accepts any.
