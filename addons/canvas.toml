@@ -1,9 +1,7 @@
 # Canvas: a whiteboard (Excalidraw, stored as JSON Canvas) that the person and Ava draw on together.
 repo = "avacanada/ava-canvas"
-# avacanada/ava-canvas#1, 0.1.0, at that PR's head. Merge it before this
-# entry: that repo merges with merge commits, so this commit then stays on its
-# main.
-commit = "c44a6fc1b390d3aa89cf6c68118178842bac1023"
+# avacanada/ava-canvas 0.1.0: the merge commit of avacanada/ava-canvas#1 on main.
+commit = "c3a9a664aed46859ed54ff67b17d5a061c62641f"
 version = "0.1.0"
 publisher = "Addis"
 permissions = ["files", "storage", "tools"]
