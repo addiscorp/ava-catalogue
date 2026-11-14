@@ -2,7 +2,7 @@
 //
 //   node tools/pack/main.ts validate                      check every entry
 //   node tools/pack/main.ts ids [--changed-since <ref>]   the ids to build
-//   node tools/pack/main.ts fetch --work W [id…]          sources at their pinned commits (may use ADDON_SOURCE_TOKEN),
+//   node tools/pack/main.ts fetch --work W [id…]          sources at their pinned commits (may use ADDON_DEPLOY_KEY_<ID> or ADDON_SOURCE_TOKEN),
 //                                                         and a copy of each one's listing/ taken before anything is built
 //   node tools/pack/main.ts build --work W [id…]          npm ci --ignore-scripts && npm run build, each (no secrets)
 //   node tools/pack/main.ts pack --work W --out O [id…]   check each built manifest against its entry and its listing,
@@ -14,7 +14,7 @@
 //   node tools/pack/main.ts vectors                       remake vectors/ (test key)
 //
 // No id: every entry. Each step reads what the one before wrote, so CI can
-// give each its own environment (only `fetch` sees a token, only `sign` the key).
+// give each its own environment (only `fetch` sees a deploy key or token, only `sign` the key).
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'

@@ -18,6 +18,7 @@
 # Secrets, by name only (none is ever printed or passed as an argument):
 #   CATALOGUE_SIGNING_KEY  the Ed25519 seed, 64 hex (release environment)
 #   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT   R2 upload (release environment)
+#   ADDON_DEPLOY_KEY_<ID>  a read-only deploy key per private add-on repo (repo secret, fetch step only)
 #   ADDON_SOURCE_TOKEN     optional: reads private add-on repos (fetch step only)
 name: Release
 
@@ -77,13 +78,16 @@ jobs:
       - name: Every entry is valid
         run: node tools/pack/main.ts validate
 
+      # One ADDON_DEPLOY_KEY_<ID> line per private add-on (README, "Private add-ons"),
+      # here and in pr.yml, on this step only.
       - name: Sources at their pinned commits
         env:
           ADDON_SOURCE_TOKEN: ${{ secrets.ADDON_SOURCE_TOKEN }}
+          ADDON_DEPLOY_KEY_CANVAS: ${{ secrets.ADDON_DEPLOY_KEY_CANVAS }}
         run: |
           set -euo pipefail
           if [ -z "$ADDON_SOURCE_TOKEN" ]; then
-            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos can be read."
+            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos, and those with a deploy key (ADDON_DEPLOY_KEY_<ID>), can be read."
           fi
           sudo install -d -m 755 -o "$(id -u)" -g "$(id -g)" "$BUILD_ROOT"
           node tools/pack/main.ts fetch --work "$BUILD_ROOT/work"
