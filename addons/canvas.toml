@@ -1,0 +1,36 @@
+# Canvas: a whiteboard (Excalidraw, stored as JSON Canvas) that the person and Ava draw on together.
+repo = "avacanada/ava-canvas"
+# avacanada/ava-canvas 0.1.0: the merge commit of avacanada/ava-canvas#1 on main.
+commit = "c3a9a664aed46859ed54ff67b17d5a061c62641f"
+version = "0.1.0"
+publisher = "Addis"
+permissions = ["files", "storage", "tools"]
+egress = []
+
+[[tools]]
+name = "read_board"
+effect = "read"
+
+[[tools]]
+name = "add_elements"
+effect = "inside"
+
+[[tools]]
+name = "add_mermaid"
+effect = "inside"
+
+[[tools]]
+name = "update_elements"
+effect = "inside"
+
+[[tools]]
+name = "delete_elements"
+effect = "inside"
+
+[[tools]]
+name = "undo"
+effect = "inside"
+
+[[tools]]
+name = "look_at_board"
+effect = "read"
