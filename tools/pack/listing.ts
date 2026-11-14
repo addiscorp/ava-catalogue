@@ -1,5 +1,5 @@
 // An add-on's listing: what the catalogue, Ava's Settings › Add-ons and
-// ava.addis.gg/addons show about it beyond its manifest. It lives in the
+// heyava.ca/addons show about it beyond its manifest. It lives in the
 // add-on's repo, in `listing/`, read at the pinned commit:
 //
 //   listing/listing.toml
