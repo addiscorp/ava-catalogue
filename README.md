@@ -179,7 +179,9 @@ vectors and the patch together.
   and size; Ava also checks the package's manifest asks for exactly what the
   index (and so its install prompt) says.
 - **The add-on's build never sees the key.** In the release job, sources are
-  fetched with the optional read token, then built as a separate user with a
+  fetched (a private one with its deploy key or the optional read token,
+  neither of which git or the build sees in its environment; see
+  [Private add-ons](#private-add-ons)), then built as a separate user with a
   bare environment and no secrets; every process of that user is killed
   before the signing step, the only step given the key (as an environment
   variable, never an argument, never logged).
@@ -190,7 +192,8 @@ vectors and the patch together.
   bytes and verifies them against the production key with `tools/verify`, by
   both ways in, which must agree (APS 9).
 - **The PR workflow has no signing key**: it signs with the test key, and its
-  only secret is the read token for private add-on repos.
+  only secrets read private add-on repos (deploy keys, the read token), and
+  only its fetch step gets them.
 
 ### Rotating the key
 
@@ -210,12 +213,70 @@ A leaked key is the same, faster, plus a new index version so caches move on.
 
 | workflow | when | runner | secrets |
 |---|---|---|---|
-| `pr.yml` | every PR | `mirab-linux-x64` (APS 11) | `ADDON_SOURCE_TOKEN` (optional, fetch step only) |
-| `release.yml` | push to `main` | `ubuntu-24.04`, GitHub-hosted: a publish job (APS 11) | `release` environment: `CATALOGUE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`; plus `ADDON_SOURCE_TOKEN` |
+| `pr.yml` | every PR | `ubuntu-24.04`, GitHub-hosted: a public repo (APS 11) | `ADDON_DEPLOY_KEY_<ID>` per private add-on, `ADDON_SOURCE_TOKEN` (optional); fetch step only |
+| `release.yml` | push to `main` | `ubuntu-24.04`, GitHub-hosted: a publish job (APS 11) | `release` environment: `CATALOGUE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`; plus `ADDON_DEPLOY_KEY_<ID>` and `ADDON_SOURCE_TOKEN` (fetch step only) |
 
 The release fails closed, before building anything, when any of the release
 secrets is missing, and says which. A private add-on repo can't be fetched
-without `ADDON_SOURCE_TOKEN` (a token that can read it); the error says so.
+without its deploy key (or `ADDON_SOURCE_TOKEN`); the error names the secret
+to set.
+
+## Private add-ons
+
+A private add-on repo is read with a **deploy key of its own**: read-only, on
+that one repo, and nothing else. The packer looks for it in
+`ADDON_DEPLOY_KEY_<ID>`, the entry's id upper-cased with anything not A-Z or
+0-9 made `_` (`canvas` → `ADDON_DEPLOY_KEY_CANVAS`, `my-notes` →
+`ADDON_DEPLOY_KEY_MY_NOTES`). With it set, `fetch` reads
+`git@github.com:<repo>.git` over SSH with that key alone: written to a 0600
+file in a 0700 directory, named to git only by `GIT_SSH_COMMAND`
+(`-F /dev/null`, `IdentitiesOnly`, no agent, `StrictHostKeyChecking=yes`
+against github.com's host keys pinned in `tools/pack/github_known_hosts`), and
+deleted when the fetch ends, whether it worked or not. git's environment
+never holds a deploy key or the token, and the build never sees either. Without
+one, the fetch is HTTPS as before (with `ADDON_SOURCE_TOKEN` if it's set).
+
+The secrets are repo secrets, so the PR workflow and the release job both get
+them; a PR from a fork gets none. To add one (canvas as the example; it needs
+admin on both repos):
+
+1. **Generate a key** in a private directory of your own (not a shared temp
+   directory), with no passphrase, since CI can't type one:
+   ```sh
+   ssh-keygen -t ed25519 -N '' -C 'ava-catalogue read canvas' -f ./canvas_deploy_key
+   ```
+2. **Add the public half as a read-only deploy key** on the add-on's repo
+   (the avacanada org allows deploy keys), and check that it worked:
+   ```sh
+   gh repo deploy-key add ./canvas_deploy_key.pub -R avacanada/ava-canvas --title 'ava-catalogue (read)'
+   gh repo deploy-key list -R avacanada/ava-canvas      # it's listed, read-only
+   ```
+   `deploy-key add` is read-only unless you pass `--allow-write`; never do.
+   **Don't go on until this succeeded.** If GitHub refused the key (deploy keys
+   disabled, the key already used on another repo, no admin), storing the
+   private half anyway gives a secret that opens nothing, and the fetch fails
+   later with a less obvious message. This has happened twice, with scripts
+   that set the secret without checking the add.
+3. **Store the private half** as the catalogue's repo secret, from the file,
+   so it's never echoed, typed or in your shell history:
+   ```sh
+   gh secret set ADDON_DEPLOY_KEY_CANVAS -R avacanada/ava-catalogue < ./canvas_deploy_key
+   ```
+4. **Add one line to the fetch step** of both `.github/workflows/pr.yml` and
+   `.github/workflows/release.yml`, next to `ADDON_SOURCE_TOKEN`, and nowhere
+   else:
+   ```yaml
+             ADDON_DEPLOY_KEY_CANVAS: ${{ secrets.ADDON_DEPLOY_KEY_CANVAS }}
+   ```
+5. **Delete the local key**: GitHub holds the only copies it needs.
+   ```sh
+   rm ./canvas_deploy_key ./canvas_deploy_key.pub
+   ```
+
+To revoke: delete the deploy key on the add-on's repo, then the secret here.
+If github.com rotates its SSH host keys, update `tools/pack/github_known_hosts`
+from https://api.github.com/meta (and check the fingerprints GitHub publishes)
+in a reviewed PR.
 
 ## Working on it
 
