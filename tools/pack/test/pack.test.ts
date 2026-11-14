@@ -117,6 +117,11 @@ test('manifests are checked by Ava’s rules before anything is signed', () => {
   bad({ icon: 'icon.exe' }, /\.svg or \.png/)
   bad({ tools: [{ name: 'Find', description: 'x', effect: 'read', input_schema: { type: 'object' } }] }, /isn't a tool name/)
   bad({ tools: [{ name: 'find', description: 'x', effect: 'everything', input_schema: { type: 'object' } }] }, /an effect/)
+  // `files`: needed (the default) or optional, and only beside the `files` permission.
+  for (const files of ['needed', 'optional']) assert.equal(parseManifest(JSON.stringify({ ...notes(), files })).files, files)
+  bad({ files: 'sometimes' }, /needed or optional/)
+  bad({ files: { needed: 'folder' } }, /needed or optional/)
+  bad({ files: 'optional', permissions: ['tools'] }, /doesn't ask for/)
 })
 
 test('entries are checked: a full commit, known fields, no reserved ids', () => {
@@ -220,7 +225,7 @@ test('an index never goes back, and a published package or asset never changes',
  * `src-tauri/src/addons/vectors/`): the patch's vectors apply on top of them.
  * Move it when ava merges a patch with newer vectors.
  */
-const AVA_HAS_VECTORS_OF = '61a2f52fa16a6311ba031b370b80e1dcf4e115e3'
+const AVA_HAS_VECTORS_OF = '9fab11f50d32d7e96d40694ecba72e2fcec936a7'
 
 test('the patch for avacanada/ava carries exactly these vectors', () => {
   const dir = tmp()

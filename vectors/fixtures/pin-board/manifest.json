@@ -2,9 +2,10 @@
   "id": "pin-board",
   "name": "Pin Board",
   "version": "2.1.0-beta.1",
-  "description": "A test vector: reaches two hosts, keeps storage, one outside tool.",
+  "description": "A test vector: reaches two hosts, keeps storage, one outside tool, files only sometimes.",
   "entry": "board.html",
-  "permissions": ["network", "storage", "tools"],
+  "permissions": ["network", "storage", "tools", "files"],
+  "files": "optional",
   "egress": ["images.example.com", "*.cdn.example.com"],
   "tools": [
     { "name": "pin", "description": "Pin an image from the web.", "effect": "outside", "input_schema": { "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] } }

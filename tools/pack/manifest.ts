@@ -8,6 +8,9 @@ export const EFFECTS = ['read', 'inside', 'outside'] as const
 export type Effect = (typeof EFFECTS)[number]
 export const PERMISSIONS = ['files', 'storage', 'tools', 'network'] as const
 export type Permission = (typeof PERMISSIONS)[number]
+/** With `files`: whether its tools need a picked folder or file (`needed`, the default) or only sometimes ask for files (`optional`). */
+export const FILES_USES = ['needed', 'optional'] as const
+export type FilesUse = (typeof FILES_USES)[number]
 
 export type ToolSpec = { name: string; description: string; effect: Effect; input_schema: Record<string, unknown> }
 export type Manifest = {
@@ -18,12 +21,13 @@ export type Manifest = {
   entry?: string
   icon?: string | null
   permissions?: Permission[]
+  files?: FilesUse | null
   tools?: ToolSpec[]
   egress?: string[]
   worker?: { module: string; world: string } | null
 }
 
-const MANIFEST_KEYS = ['id', 'name', 'version', 'description', 'entry', 'icon', 'permissions', 'tools', 'egress', 'worker']
+const MANIFEST_KEYS = ['id', 'name', 'version', 'description', 'entry', 'icon', 'permissions', 'files', 'tools', 'egress', 'worker']
 const TOOL_KEYS = ['name', 'description', 'effect', 'input_schema']
 const WORKER_KEYS = ['module', 'world']
 
@@ -92,6 +96,7 @@ export function parseManifest(text: string): Manifest {
   for (const k of ['permissions', 'tools', 'egress']) if (raw[k] !== undefined && !Array.isArray(raw[k])) throw new Error(`the manifest's ${k} must be a list`)
   const m = raw as Manifest
   for (const p of m.permissions ?? []) if (!PERMISSIONS.includes(p)) throw new Error(`“${p}” isn't a permission (${PERMISSIONS.join(', ')})`)
+  if (m.files != null && !FILES_USES.includes(m.files)) throw new Error(`the manifest's files must be ${FILES_USES.join(' or ')}`)
   for (const t of m.tools ?? []) {
     if (!isObject(t)) throw new Error('every tool must be an object')
     unknownKeys(t, TOOL_KEYS, `the tool ${String(t.name)}`)
@@ -131,6 +136,7 @@ export function checkManifest(m: Manifest): void {
     if (t.input_schema.type !== 'object') throw new Error(`the tool “${t.name}”'s input_schema must be an object schema`)
   }
   if ((m.tools ?? []).length && !has('tools')) throw new Error('it declares tools but not the `tools` permission')
+  if (m.files != null && !has('files')) throw new Error("`files` says how it uses the `files` permission, which it doesn't ask for")
   for (const h of m.egress ?? []) if (!validHost(h)) throw new Error(`“${h}” isn't a host name (no scheme, port or path)`)
   if (has('network') === ((m.egress ?? []).length === 0)) throw new Error('the `network` permission and a list of `egress` hosts go together')
   if (m.worker != null && (!validBundlePath(m.worker.module) || !m.worker.module.endsWith('.wasm'))) {

@@ -38,11 +38,12 @@
       "name": "Pin Board",
       "version": "2.1.0-beta.1",
       "publisher": "Vectors (test key)",
-      "description": "A test vector: reaches two hosts, keeps storage, one outside tool.",
+      "description": "A test vector: reaches two hosts, keeps storage, one outside tool, files only sometimes.",
       "permissions": [
         "network",
         "storage",
-        "tools"
+        "tools",
+        "files"
       ],
       "tools": [
         {
@@ -57,8 +58,8 @@
       ],
       "package": {
         "file": "pin-board-2.1.0-beta.1.avapkg",
-        "sha256": "6e7e23bd8bf202282eb89cbea19143df47e36448884b3eab56e6813427cc0c12",
-        "bytes": 1743
+        "sha256": "e7fdf3666a119589d7422e24907bc3d58cb4df44c4bf8c48d4f85890ad6db85e",
+        "bytes": 1815
       }
     }
   ]

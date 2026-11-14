@@ -10,7 +10,7 @@ addons/<id>.toml     one entry per add-on: repo, commit, version, what it asks f
 tools/pack/          the packer (TypeScript, Node 24): fetch, build, check, pack, index, sign
 tools/verify/        an independent verifier (Python 3.11+ and OpenSSL 3)
 vectors/             golden packages and indexes, signed with the TEST key
-patches/             the test (and production key) for avacanada/ava that checks vectors/
+patches/             vectors/ for avacanada/ava, as a diff from the ones it has (its test, catalogue_vectors.rs, checks them)
 ```
 
 What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
@@ -159,12 +159,16 @@ kept in step:
   `both` with `index.json`).
 
 `npm run vectors` makes them; CI fails if they're not current.
-`patches/ava-catalogue-vectors.patch` copies them into avacanada/ava with a
-test (`src-tauri/src/addons/catalogue_vectors.rs`) that checks each file is
-what serde_json writes, each signature is what `test_key::sign` makes, the
-good ones install and each bad one is refused for its reason. CI here checks
-the patch carries exactly these vectors. When the format changes, remake the
-vectors and the patch together.
+`patches/ava-catalogue-vectors.patch` copies them into avacanada/ava
+(`src-tauri/src/addons/vectors/`), as a diff from the vectors it has (this
+repo's at `AVA_HAS_VECTORS_OF` in `tools/pack/test/pack.test.ts`). Ava's test
+(`src-tauri/src/addons/catalogue_vectors.rs`) checks each file is what
+serde_json writes, each signature is what `test_key::sign` makes, the good
+ones install and each bad one is refused for its reason. CI here checks the
+patch carries exactly these vectors. When the vectors change, remake them and
+the patch together: copy `vectors/good`, `vectors/bad` and `vectors/cases.json`
+into an avacanada/ava branch, and save its `git diff --binary origin/main --
+src-tauri/src/addons/vectors` as the patch.
 
 ## Trust model
 
