@@ -1,0 +1,97 @@
+{
+  "format": 2,
+  "version": 100,
+  "published": "2026-11-11",
+  "addons": [
+    {
+      "id": "hello-notes",
+      "name": "Hello Notes",
+      "version": "1.0.0",
+      "publisher": "Vectors (test key)",
+      "description": "A test vector: two tools, files, no internet. Names “quoted”, a tab\tand ünïcode survive the round trip.",
+      "permissions": [
+        "files",
+        "tools"
+      ],
+      "tools": [
+        {
+          "name": "find",
+          "description": "Find a note.",
+          "effect": "read"
+        },
+        {
+          "name": "jot",
+          "description": "Write a note.",
+          "effect": "inside"
+        }
+      ],
+      "egress": [],
+      "package": {
+        "file": "hello-notes-1.0.0.avapkg",
+        "sha256": "142fbc7940838a0abc6bb56a3f3b8dd83f08d1a011a84a0d71baf8572a343659",
+        "bytes": 5106
+      },
+      "listing": {
+        "long_description": "A test vector's long description: “quoted”, ünïcode and two paragraphs survive the round trip.\n\nThe second paragraph, after a blank line.",
+        "category": "notes",
+        "homepage": "https://example.com/hello-notes",
+        "repo": "https://github.com/addiscorp/ava-catalogue-vectors",
+        "icon": {
+          "file": "assets/hello-notes/1.0.0/icon.svg",
+          "sha256": "d47e26c8e91732d85e99bb05e2798011210fd0b93142f760d0928f71d94a52a8",
+          "bytes": 244
+        },
+        "screenshots": [
+          {
+            "file": "assets/hello-notes/1.0.0/screenshot-1.png",
+            "sha256": "adf8d3482a1add1ee1115114479215611816a549436c210843bbbda4f5aab15f",
+            "bytes": 1337,
+            "width": 640,
+            "height": 400,
+            "caption": "A screenshot’s caption, “quoted”."
+          }
+        ]
+      }
+    },
+    {
+      "id": "pin-board",
+      "name": "Pin Board",
+      "version": "2.1.0-beta.1",
+      "publisher": "Vectors (test key)",
+      "description": "A test vector: reaches two hosts, keeps storage, one outside tool.",
+      "permissions": [
+        "network",
+        "storage",
+        "tools"
+      ],
+      "tools": [
+        {
+          "name": "pin",
+          "description": "Pin an image from the web.",
+          "effect": "outside"
+        }
+      ],
+      "egress": [
+        "images.example.com",
+        "*.cdn.example.com"
+      ],
+      "package": {
+        "file": "pin-board-2.1.0-beta.1.avapkg",
+        "sha256": "6e7e23bd8bf202282eb89cbea19143df47e36448884b3eab56e6813427cc0c12",
+        "bytes": 1743
+      },
+      "listing": {
+        "long_description": "Pins images from two hosts.",
+        "category": "media",
+        "homepage": "https://github.com/addiscorp/ava-catalogue-vectors",
+        "repo": "https://github.com/addiscorp/ava-catalogue-vectors",
+        "icon": {
+          "file": "assets/pin-board/2.1.0-beta.1/icon.png",
+          "sha256": "5e194196840a3f74d13a782fd2a7a500e5e279fe7650d13acf7dd3c4b9c4acad",
+          "bytes": 257
+        },
+        "screenshots": []
+      }
+    }
+  ]
+}
