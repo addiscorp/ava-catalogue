@@ -216,13 +216,13 @@ test('an index never goes back, and a published package or asset never changes',
 })
 
 /**
- * The commit of this repo whose vectors addiscorp/ava main carries (its
+ * The commit of this repo whose vectors avacanada/ava main carries (its
  * `src-tauri/src/addons/vectors/`): the patch's vectors apply on top of them.
  * Move it when ava merges a patch with newer vectors.
  */
 const AVA_HAS_VECTORS_OF = '61a2f52fa16a6311ba031b370b80e1dcf4e115e3'
 
-test('the patch for addiscorp/ava carries exactly these vectors', () => {
+test('the patch for avacanada/ava carries exactly these vectors', () => {
   const dir = tmp()
   const patch = join(ROOT, 'patches', 'ava-catalogue-vectors.patch')
   // A repo of its own, so git applies here and not to this checkout, with

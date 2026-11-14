@@ -1,6 +1,6 @@
 # Ava's add-on catalogue
 
-The list of add-ons [Ava](https://github.com/addiscorp/ava) can install, and
+The list of add-ons [Ava](https://github.com/avacanada/ava) can install, and
 the tools that turn it into what Ava downloads. It works like Zed's extension
 registry: publishing an add-on is a reviewed PR here, and CI builds it from
 the exact commit that PR pins.
@@ -10,7 +10,7 @@ addons/<id>.toml     one entry per add-on: repo, commit, version, what it asks f
 tools/pack/          the packer (TypeScript, Node 24): fetch, build, check, pack, index, sign
 tools/verify/        an independent verifier (Python 3.11+ and OpenSSL 3)
 vectors/             golden packages and indexes, signed with the TEST key
-patches/             the test (and production key) for addiscorp/ava that checks vectors/
+patches/             the test (and production key) for avacanada/ava that checks vectors/
 ```
 
 What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
@@ -23,12 +23,12 @@ What Ava downloads is served from `https://ava-releases.addis.gg/catalogue/`
    `npm ci --ignore-scripts && npm run build` writes its bundle to `dist/`,
    with `dist/manifest.json` (Ava's manifest format, `manifest.rs`). Its
    version is the manifest's `version`. Notebook
-   ([addiscorp/ava-notebook](https://github.com/addiscorp/ava-notebook)) is
+   ([avacanada/ava-notebook](https://github.com/avacanada/ava-notebook)) is
    the example.
 2. Open a PR here that adds or changes `addons/<id>.toml`:
 
    ```toml
-   repo = "addiscorp/ava-notebook"          # owner/name on github.com
+   repo = "avacanada/ava-notebook"          # owner/name on github.com
    commit = "<the full 40-character SHA>"   # built from exactly this commit
    version = "0.1.0"                        # the manifest's version at that commit
    publisher = "Addis"                      # shown as "From Addis" in Ava's install prompt
@@ -154,7 +154,7 @@ kept in step:
   `both` with `index.json`).
 
 `npm run vectors` makes them; CI fails if they're not current.
-`patches/ava-catalogue-vectors.patch` copies them into addiscorp/ava with a
+`patches/ava-catalogue-vectors.patch` copies them into avacanada/ava with a
 test (`src-tauri/src/addons/catalogue_vectors.rs`) that checks each file is
 what serde_json writes, each signature is what `test_key::sign` makes, the
 good ones install and each bad one is refused for its reason. CI here checks
@@ -191,7 +191,7 @@ vectors and the patch together.
 
 Ava carries one key today. To rotate without breaking installs, Ava should
 carry two, **current** and **next**, and accept either (a follow-up for
-addiscorp/ava). Then:
+avacanada/ava). Then:
 1. Generate the next key pair; ship an Ava release that carries its public
    key as `next`.
 2. Once that release is out, put the next seed in `CATALOGUE_SIGNING_KEY`,
@@ -239,8 +239,10 @@ packer, and Ava's Rust is the third check, through the vectors.
 
 ## License
 
-Proprietary, all rights reserved: see [LICENSE](LICENSE). Ava's first-party
-add-ons and their tooling are proprietary, like Ava (Ava APS 1,
-avacanada/aps#1, under Addis APS 17). The add-on SDK,
-[@addiscorp/ava-addon](https://github.com/avacanada/ava-addon), stays MIT, and
-an add-on published here keeps its own licence: the catalogue accepts any.
+MIT, see [LICENSE](LICENSE) (Addis APS 17). The catalogue is public: its
+entries, the packer, the verifier and the vectors are MIT (Sami, 13 Nov,
+reversing avacanada/ava-catalogue#5 for this repo only). The add-ons it lists
+keep their own licences, and the catalogue accepts any: Ava's first-party
+add-ons (Notebook, Create, Canvas) are proprietary, like Ava (Ava APS 1,
+avacanada/aps#1). The add-on SDK,
+[@avacanada/ava-addon](https://github.com/avacanada/ava-addon), is MIT.

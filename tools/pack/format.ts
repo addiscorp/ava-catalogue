@@ -1,4 +1,4 @@
-// The catalogue's file formats, as addiscorp/ava src-tauri/src/addons/catalogue.rs
+// The catalogue's file formats, as avacanada/ava src-tauri/src/addons/catalogue.rs
 // reads them. Under https://ava-releases.addis.gg/catalogue/:
 //
 //   <id>-<version>.avapkg(.sig)        a package (immutable)

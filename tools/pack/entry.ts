@@ -1,7 +1,7 @@
 // A catalogue entry: `addons/<id>.toml`, the reviewed line that says which
 // repo and commit an add-on is built from and what it may ask for.
 //
-//   repo = "addiscorp/ava-notebook"     # on github.com
+//   repo = "avacanada/ava-notebook"     # on github.com
 //   commit = "<40 hex>"                 # built from exactly this commit
 //   version = "0.1.0"                   # = the built manifest's version
 //   publisher = "Addis"                 # shown to the person as "From …"
