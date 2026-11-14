@@ -5,9 +5,10 @@
 # Runners: this repo is public, so CI runs on GitHub-hosted runners, as
 # public repos may (APS 11, as Sami amended it on 10-12 Nov). Private repos
 # run on our own runners. Nothing here signs
-# with the production key or uploads anything; the only secret is the
-# optional read token for private add-on repos (ADDON_SOURCE_TOKEN), given to
-# the fetch step alone.
+# with the production key or uploads anything; the only secrets read private
+# add-on repos (a deploy key per repo, ADDON_DEPLOY_KEY_<ID>, and the optional
+# ADDON_SOURCE_TOKEN), and only the fetch step gets them. A PR from a fork gets
+# none, so a private add-on can't be built there.
 name: PR
 
 on:
@@ -74,13 +75,16 @@ jobs:
           ids="$(node tools/pack/main.ts ids --changed-since "origin/${GITHUB_BASE_REF}" | tr '\n' ' ')"
           echo "ids=${ids}" >> "$GITHUB_OUTPUT"
           echo "changed: ${ids:-none}"
+      # One ADDON_DEPLOY_KEY_<ID> line per private add-on (README, "Private add-ons"),
+      # here and in release.yml, on this step only.
       - name: Sources at their pinned commits
         if: steps.ids.outputs.ids != ''
         env:
           ADDON_SOURCE_TOKEN: ${{ secrets.ADDON_SOURCE_TOKEN }}
+          ADDON_DEPLOY_KEY_CANVAS: ${{ secrets.ADDON_DEPLOY_KEY_CANVAS }}
         run: |
           if [ -z "$ADDON_SOURCE_TOKEN" ]; then
-            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos can be read."
+            echo "::notice::ADDON_SOURCE_TOKEN isn't set: only public add-on repos, and those with a deploy key (ADDON_DEPLOY_KEY_<ID>), can be read."
           fi
           node tools/pack/main.ts fetch --work work ${{ steps.ids.outputs.ids }}
       - name: Build (no token, a bare environment)
