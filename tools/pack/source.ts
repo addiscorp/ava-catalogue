@@ -10,7 +10,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import type { Entry } from './entry.ts'
 
@@ -126,7 +126,9 @@ export function fetchSource(entry: Entry, work: string, env: NodeJS.ProcessEnv =
   try {
     let keyFile: string | undefined
     if (t.kind === 'ssh') {
-      keyDir = mkdtempSync(join(work, '.deploy-key-'))
+      // Absolute: git runs ssh from inside <work>/src/<id>, so a path relative
+      // to the caller's directory (CI passes `--work work`) would name nothing.
+      keyDir = mkdtempSync(join(resolve(work), '.deploy-key-'))
       chmodSync(keyDir, 0o700)
       keyFile = join(keyDir, 'key')
       // ssh wants the key's final newline; a secret pasted with CRLF still reads.
