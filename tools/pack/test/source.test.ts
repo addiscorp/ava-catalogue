@@ -159,6 +159,30 @@ test('with a deploy key, the source comes over SSH with that key, from a 0600 fi
   assert.deepEqual(leftoverKeys(work), [], 'the key file and its directory are gone')
 })
 
+test('a relative work folder, as CI passes it (`--work work`), still hands ssh a key path it can open', () => {
+  // git runs ssh from inside <work>/src/<id>: a key path relative to the
+  // caller's folder named nothing there, and github.com said "Permission
+  // denied (publickey)" (avacanada/ava-catalogue#8, 14 Nov).
+  const dir = tmp()
+  const remotes = join(dir, 'remotes')
+  const commit = bareRepo(remotes, 'avacanada/ava-canvas')
+  const log = join(dir, 'log')
+  const bin = fakeSsh(dir, remotes, log)
+  mkdirSync(join(dir, 'work'))
+  const env = { PATH: `${bin}:${process.env.PATH}`, HOME: dir, ADDON_DEPLOY_KEY_CANVAS: KEY }
+  const before = process.cwd()
+  process.chdir(dir)
+  try {
+    const src = fetchSource(entry('canvas', 'avacanada/ava-canvas', commit), 'work', env)
+    assert.equal(readFileSync(join(src, 'README'), 'utf8'), 'an add-on\n')
+    assert.equal(readFileSync(join(log, 'key'), 'utf8'), `${KEY}\n`, 'ssh opened the key file')
+    assert.match(readFileSync(join(log, 'env'), 'utf8'), /^GIT_SSH_COMMAND=.*-i '\/.*\/\.deploy-key-[^/]+\/key'/m, 'an absolute key path')
+    assert.deepEqual(leftoverKeys(join(dir, 'work')), [], 'the key file and its directory are gone')
+  } finally {
+    process.chdir(before)
+  }
+})
+
 test('a failed SSH fetch still removes the key, and says which secret to check, never its value', () => {
   const dir = tmp()
   const remotes = join(dir, 'remotes')
